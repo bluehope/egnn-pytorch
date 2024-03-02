@@ -164,7 +164,8 @@ class EGNN(nn.Module):
         valid_radius = float('inf'),
         m_pool_method = 'sum',
         soft_edges = False,
-        coor_weights_clamp_value = None
+        coor_weights_clamp_value = None,
+        use_pbc = False  # periodic boundary condition
     ):
         super().__init__()
         assert m_pool_method in {'sum', 'mean'}, 'pool method must be either sum or mean'
@@ -214,6 +215,8 @@ class EGNN(nn.Module):
         self.coor_weights_clamp_value = coor_weights_clamp_value
 
         self.init_eps = init_eps
+        self.use_pbc = use_pbc
+        
         self.apply(self.init_)
 
     def init_(self, module):
@@ -221,7 +224,7 @@ class EGNN(nn.Module):
             # seems to be needed to keep the network from exploding to NaN with greater depths
             nn.init.normal_(module.weight, std = self.init_eps)
 
-    def forward(self, feats, coors, edges = None, mask = None, adj_mat = None):
+    def forward(self, feats, coors, edges = None, mask = None, adj_mat = None, lattice_vectors = None):
         b, n, d, device, fourier_features, num_nearest, valid_radius, only_sparse_neighbors = *feats.shape, feats.device, self.fourier_features, self.num_nearest_neighbors, self.valid_radius, self.only_sparse_neighbors
 
         if exists(mask):
@@ -230,6 +233,12 @@ class EGNN(nn.Module):
         use_nearest = num_nearest > 0 or only_sparse_neighbors
 
         rel_coors = rearrange(coors, 'b i d -> b i () d') - rearrange(coors, 'b j d -> b () j d')
+        if self.use_pbc:
+            frac_rel_pos = torch.matmul(rel_coors, torch.linalg.inv(lattice_vectors))
+            frac_rel_pos_pbc = frac_rel_pos - torch.round(frac_rel_pos)
+            rel_pos_pbc  = torch.matmul(frac_rel_pos_pbc, lattice_vectors)
+            rel_coors = rel_pos_pbc
+            
         rel_dist = (rel_coors ** 2).sum(dim = -1, keepdim = True)
 
         i = j = n
