@@ -87,7 +87,7 @@ i = torch.arange(1024)
 adj_mat = (i[:, None] >= (i[None, :] - 1)) & (i[:, None] <= (i[None, :] + 1))
 
 feats_out, coors_out = net(feats, coors, mask = mask, adj_mat = adj_mat, lattice_vectors=lattice_vectors) # (1, 1024, 32), (1, 1024, 3)
-
+print("No error raised with PBC")
 # %%
 # no lattice_vector error should be raised 
 net = EGNN_Network(
@@ -112,5 +112,6 @@ adj_mat = (i[:, None] >= (i[None, :] - 1)) & (i[:, None] <= (i[None, :] + 1))
 try:
     feats_out, coors_out = net(feats, coors, mask = mask, adj_mat = adj_mat) # (1, 1024, 32), (1, 1024, 3)
 except Exception as e:
+    print("Error raised as expected:")
     print(e)
 # %%
