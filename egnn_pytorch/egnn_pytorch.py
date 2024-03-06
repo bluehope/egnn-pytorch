@@ -365,6 +365,7 @@ class EGNN_Network(nn.Module):
         global_linear_attn_heads = 8,
         global_linear_attn_dim_head = 64,
         num_global_tokens = 4,
+        use_pbc = False,
         **kwargs
     ):
         super().__init__()
@@ -388,12 +389,13 @@ class EGNN_Network(nn.Module):
             self.global_tokens = nn.Parameter(torch.randn(num_global_tokens, dim))
 
         self.layers = nn.ModuleList([])
+        self.use_pbc = use_pbc
         for ind in range(depth):
             is_global_layer = has_global_attn and (ind % global_linear_attn_every) == 0
 
             self.layers.append(nn.ModuleList([
                 GlobalLinearAttention(dim = dim, heads = global_linear_attn_heads, dim_head = global_linear_attn_dim_head) if is_global_layer else None,
-                EGNN(dim = dim, edge_dim = (edge_dim + adj_dim), norm_feats = True, **kwargs),
+                EGNN(dim = dim, edge_dim = (edge_dim + adj_dim), norm_feats = True, use_pbc=use_pbc, **kwargs),
             ]))
 
     def forward(
@@ -403,7 +405,8 @@ class EGNN_Network(nn.Module):
         adj_mat = None,
         edges = None,
         mask = None,
-        return_coor_changes = False
+        return_coor_changes = False,
+        lattice_vectors = None
     ):
         b, device = feats.shape[0], feats.device
 
@@ -446,6 +449,9 @@ class EGNN_Network(nn.Module):
         if exists(self.global_tokens):
             global_tokens = repeat(self.global_tokens, 'n d -> b n d', b = b)
 
+        # check: lattice_vectors should not be None if use_pbc is True
+        assert not (self.use_pbc and lattice_vectors is None), "lattice_vectors should not be None if use_pbc is True"
+        
         # go through layers
 
         coor_changes = [coors]
@@ -454,7 +460,7 @@ class EGNN_Network(nn.Module):
             if exists(global_attn):
                 feats, global_tokens = global_attn(feats, global_tokens, mask = mask)
 
-            feats, coors = egnn(feats, coors, adj_mat = adj_mat, edges = edges, mask = mask)
+            feats, coors = egnn(feats, coors, adj_mat = adj_mat, edges = edges, mask = mask, lattice_vectors=lattice_vectors)
             coor_changes.append(coors)
 
         if return_coor_changes:
