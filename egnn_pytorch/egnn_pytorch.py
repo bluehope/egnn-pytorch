@@ -234,9 +234,10 @@ class EGNN(nn.Module):
 
         rel_coors = rearrange(coors, 'b i d -> b i () d') - rearrange(coors, 'b j d -> b () j d')
         if self.use_pbc:
-            frac_rel_pos = torch.matmul(rel_coors, torch.linalg.inv(lattice_vectors))
+            inv_lattice_vectors = torch.linalg.inv(lattice_vectors)
+            frac_rel_pos = torch.einsum('bijk,bkl->bijl', rel_coors, inv_lattice_vectors)
             frac_rel_pos_pbc = frac_rel_pos - torch.round(frac_rel_pos)
-            rel_pos_pbc  = torch.matmul(frac_rel_pos_pbc, lattice_vectors)
+            rel_pos_pbc  = torch.einsum('bijk,bkl->bijl', frac_rel_pos_pbc, lattice_vectors)
             rel_coors = rel_pos_pbc
             
         rel_dist = (rel_coors ** 2).sum(dim = -1, keepdim = True)
