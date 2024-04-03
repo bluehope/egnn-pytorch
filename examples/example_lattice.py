@@ -23,12 +23,13 @@ model_lattice = EGNN(
 # %%
 # Example of Lattice & PBC
 
-feats = torch.randn(1, 16, 512)
-coors = torch.randn(1, 16, 3, requires_grad=True) * 10.0
-edges = torch.randn(1, 16, 16, 4)
+N = 16
+feats = torch.randn(1, N, 512)
+coors = torch.randn(1, N, 3, requires_grad=True) * 10.0
+edges = torch.randn(1, N, N, 4)
 
 
-lattice_vectors = torch.tensor([[10.0, 0, 0], [0, 5.0, 0], [0, 0, 10]],requires_grad=True).float()
+lattice_vectors = torch.tensor([[[10.0, 0, 0], [0, 5.0, 0], [0, 0, 10]]],requires_grad=True).float()
 
 coors.retain_grad()
 out_feats, out_coors = model_lattice(feats, coors, edges,
