@@ -224,7 +224,9 @@ class EGNN(nn.Module):
             # seems to be needed to keep the network from exploding to NaN with greater depths
             nn.init.normal_(module.weight, std = self.init_eps)
 
-    def forward(self, feats, coors, edges = None, mask = None, adj_mat = None, lattice_vectors = None):
+    def forward(self, feats, coors, edges = None, mask = None, adj_mat = None, lattice = None):
+        
+        
         b, n, d, device, fourier_features, num_nearest, valid_radius, only_sparse_neighbors = *feats.shape, feats.device, self.fourier_features, self.num_nearest_neighbors, self.valid_radius, self.only_sparse_neighbors
 
         if exists(mask):
@@ -234,10 +236,10 @@ class EGNN(nn.Module):
 
         rel_coors = rearrange(coors, 'b i d -> b i () d') - rearrange(coors, 'b j d -> b () j d')
         if self.use_pbc:
-            inv_lattice_vectors = torch.linalg.inv(lattice_vectors)
+            inv_lattice_vectors = torch.linalg.inv(lattice)
             frac_rel_pos = torch.einsum('bijk,bkl->bijl', rel_coors, inv_lattice_vectors)
             frac_rel_pos_pbc = frac_rel_pos - torch.round(frac_rel_pos)
-            rel_pos_pbc  = torch.einsum('bijk,bkl->bijl', frac_rel_pos_pbc, lattice_vectors)
+            rel_pos_pbc  = torch.einsum('bijk,bkl->bijl', frac_rel_pos_pbc, lattice)
             rel_coors = rel_pos_pbc
             
         rel_dist = (rel_coors ** 2).sum(dim = -1, keepdim = True)
@@ -407,7 +409,7 @@ class EGNN_Network(nn.Module):
         edges = None,
         mask = None,
         return_coor_changes = False,
-        lattice_vectors = None
+        lattice = None
     ):
         b, device = feats.shape[0], feats.device
 
@@ -451,7 +453,7 @@ class EGNN_Network(nn.Module):
             global_tokens = repeat(self.global_tokens, 'n d -> b n d', b = b)
 
         # check: lattice_vectors should not be None if use_pbc is True
-        assert not (self.use_pbc and lattice_vectors is None), "lattice_vectors should not be None if use_pbc is True"
+        assert not (self.use_pbc and lattice is None), "lattice_vectors should not be None if use_pbc is True"
         
         # go through layers
 
@@ -461,7 +463,7 @@ class EGNN_Network(nn.Module):
             if exists(global_attn):
                 feats, global_tokens = global_attn(feats, global_tokens, mask = mask)
 
-            feats, coors = egnn(feats, coors, adj_mat = adj_mat, edges = edges, mask = mask, lattice_vectors=lattice_vectors)
+            feats, coors = egnn(feats, coors, adj_mat = adj_mat, edges = edges, mask = mask, lattice=lattice)
             coor_changes.append(coors)
 
         if return_coor_changes:
