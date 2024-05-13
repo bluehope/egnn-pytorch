@@ -323,7 +323,7 @@ class EGNN(nn.Module):
 
             if self.coors_tanh:
 
-                coor_weights = torch.tanh(coor_weights)
+                coor_weights = torch.tanh(coor_weights).clone()
 
             coor_weights = rearrange(coor_weights, 'b i j () -> b i j')
 
