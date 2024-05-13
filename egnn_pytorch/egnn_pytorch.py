@@ -374,6 +374,7 @@ class EGNN_Network(nn.Module):
         global_linear_attn_dim_head = 64,
         num_global_tokens = 4,
         use_pbc = False,
+        coors_tanh = False,
         **kwargs
     ):
         super().__init__()
@@ -403,7 +404,7 @@ class EGNN_Network(nn.Module):
 
             self.layers.append(nn.ModuleList([
                 GlobalLinearAttention(dim = dim, heads = global_linear_attn_heads, dim_head = global_linear_attn_dim_head) if is_global_layer else None,
-                EGNN(dim = dim, edge_dim = (edge_dim + adj_dim), norm_feats = True, use_pbc=use_pbc, **kwargs),
+                EGNN(dim = dim, edge_dim = (edge_dim + adj_dim), norm_feats = True, use_pbc=use_pbc, coors_tanh = coors_tanh, **kwargs),
             ]))
 
     def forward(
