@@ -173,6 +173,8 @@ class EGNN(nn.Module):
         assert update_feats or update_coors, 'you must update either features, coordinates, or both'
         assert not (coors_tanh and not norm_coors), 'coors_tanh must be used with norm_coors'
 
+        self.coors_tanh = coors_tanh
+
         self.fourier_features = fourier_features
 
         edge_input_dim = (fourier_features * 2) + (dim * 2) + edge_dim + 1
@@ -209,8 +211,8 @@ class EGNN(nn.Module):
             nn.Linear(m_dim, m_dim * 4),
             dropout,
             SiLU(),
-            nn.Linear(m_dim * 4, 1),
-            nn.Tanh() if coors_tanh else nn.Identity()
+            nn.Linear(m_dim * 4, 1)
+            # nn.Tanh() if coors_tanh else nn.Identity()
         ) if update_coors else None
 
         self.num_nearest_neighbors = num_nearest_neighbors
@@ -318,6 +320,11 @@ class EGNN(nn.Module):
 
         if exists(self.coors_mlp):
             coor_weights = self.coors_mlp(m_ij)
+
+            if self.coors_tanh:
+
+                coor_weights = torch.tanh(coor_weights)
+
             coor_weights = rearrange(coor_weights, 'b i j () -> b i j')
 
             rel_coors = self.coors_norm(rel_coors)
